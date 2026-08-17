@@ -32,7 +32,12 @@ if [ "$DRY_RUN" -eq 1 ]; then say "✓ Dry run: no files will be changed"; exit 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 SOURCE_DIR="$SCRIPT_DIR"
 TEMP_DIR=""
-cleanup() { [ -n "$TEMP_DIR" ] && rm -rf "$TEMP_DIR"; }
+cleanup() {
+  if [ -n "$TEMP_DIR" ]; then
+    rm -rf "$TEMP_DIR"
+  fi
+  return 0
+}
 trap cleanup EXIT
 if [ ! -f "$SOURCE_DIR/package.json" ]; then
   TEMP_DIR="$(mktemp -d)"
@@ -68,8 +73,31 @@ mkdir -p "$BIN_DIR"
 cat > "$BIN_DIR/theloop" <<'WRAPPER'
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="${THELOOP_GLOBAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-exec node "$ROOT/runtime/dist/index.js" "$@"
+
+if [ -n "${THELOOP_GLOBAL_ROOT:-}" ]; then
+  ROOT="$THELOOP_GLOBAL_ROOT"
+else
+  SCRIPT="$0"
+  while [ -L "$SCRIPT" ]; do
+    SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT")" && pwd)"
+    LINK="$(readlink "$SCRIPT")"
+    case "$LINK" in
+      /*) SCRIPT="$LINK" ;;
+      *) SCRIPT="$SCRIPT_DIR/$LINK" ;;
+    esac
+  done
+  ROOT="$(cd -P "$(dirname "$SCRIPT")/.." && pwd)"
+fi
+
+RUNTIME="$ROOT/runtime/dist/index.js"
+if [ ! -f "$RUNTIME" ] && [ -f "$ROOT/dist/index.js" ]; then
+  RUNTIME="$ROOT/dist/index.js"
+fi
+if [ ! -f "$RUNTIME" ]; then
+  printf 'TheLoop runtime is missing at %s. Run install.sh or npm run build.\n' "$RUNTIME" >&2
+  exit 1
+fi
+exec node "$RUNTIME" "$@"
 WRAPPER
 chmod 0755 "$BIN_DIR/theloop"
 ln -sfn "$BIN_DIR/theloop" "$PATH_DIR/theloop"
