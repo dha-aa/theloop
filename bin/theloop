@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="${THELOOP_GLOBAL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+exec node "$ROOT/runtime/dist/index.js" "$@"

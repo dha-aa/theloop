@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.theloop/
+.DS_Store
+*.log
+*.bak
+.tmp-*
+.forge/
